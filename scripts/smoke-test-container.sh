@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 IMAGE_NAME="${IMAGE_NAME:-release-api}"
-IMAGE_TAG="${IMAGE_TAG:-local}"
+IMAGE_TAG="${IMAGE_TAG:-$(./scripts/image-tag.sh)}"
 CONTAINER_NAME="${CONTAINER_NAME:-release-api-smoke}"
 HOST_PORT="${HOST_PORT:-18000}"
 
