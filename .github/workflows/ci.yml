@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test-build-smoke:
+    name: Test, build, and smoke test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run local CI test contract
+        run: ./scripts/ci-test.sh
+
+      - name: Build Docker image
+        env:
+          IMAGE_NAME: release-api
+          IMAGE_TAG: ci-${{ github.sha }}
+        run: ./scripts/build-image.sh
+
+      - name: Smoke test Docker image
+        env:
+          IMAGE_NAME: release-api
+          IMAGE_TAG: ci-${{ github.sha }}
+          CONTAINER_NAME: release-api-ci-smoke
+          HOST_PORT: 18000
+        run: ./scripts/smoke-test-container.sh
