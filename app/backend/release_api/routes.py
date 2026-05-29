@@ -18,7 +18,7 @@ def service_payload(status):
 @api.get("/")
 def index():
     payload = service_payload("ok")
-    payload["message"] = "CI/CD Release Engineering Foundation"
+    payload["message"] = "CI/CD Release Engineering Foundation v0.2.0"
     return jsonify(payload), 200
 
 
