@@ -3,11 +3,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+rm -rf .venv
+
 python3 -m venv .venv
 source .venv/bin/activate
 
 python -m pip install --upgrade pip
-pip install -r app/backend/requirements.txt
+python -m pip install -r app/backend/requirements.txt
 
 python -m compileall app/backend
-pytest -q
+python -m pytest -q
