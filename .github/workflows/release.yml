@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Optional release version, for example v0.1.0"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  release-image:
+    name: Build, smoke test, and publish image
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare image metadata
+        run: |
+          IMAGE_REPOSITORY="ghcr.io/${GITHUB_REPOSITORY}"
+          IMAGE_REPOSITORY="$(echo "${IMAGE_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+          IMAGE_TAG="sha-${SHORT_SHA}"
+
+          echo "IMAGE_REPOSITORY=${IMAGE_REPOSITORY}" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> "$GITHUB_ENV"
+
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "VERSION_TAG=${{ inputs.version }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build immutable Docker image
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_REPOSITORY }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        run: ./scripts/build-image.sh
+
+      - name: Smoke test immutable Docker image
+        env:
+          IMAGE_NAME: ${{ env.IMAGE_REPOSITORY }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          CONTAINER_NAME: release-api-release-smoke
+          HOST_PORT: 18000
+        run: ./scripts/smoke-test-container.sh
+
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Push SHA image tag
+        run: docker push "${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+
+      - name: Push optional version tag
+        if: ${{ inputs.version != '' }}
+        run: |
+          docker tag "${IMAGE_REPOSITORY}:${IMAGE_TAG}" "${IMAGE_REPOSITORY}:${VERSION_TAG}"
+          docker push "${IMAGE_REPOSITORY}:${VERSION_TAG}"
+
+      - name: Print release artifact
+        run: |
+          echo "Released image:"
+          echo "${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+
+          if [ -n "${VERSION_TAG:-}" ]; then
+            echo "${IMAGE_REPOSITORY}:${VERSION_TAG}"
+          fi
