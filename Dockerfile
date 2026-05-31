@@ -11,8 +11,16 @@ COPY app/backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-COPY app/backend/ ./
+RUN addgroup --system appgroup && \
+    adduser --system --ingroup appgroup --uid 10001 appuser 
+
+
+COPY --chown=appuser:appgroup  app/backend/ ./
+
 
 EXPOSE 8000
+
+USER 10001:10001
+
 
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "wsgi:app"]
