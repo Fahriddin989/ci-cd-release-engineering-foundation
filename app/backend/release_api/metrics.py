@@ -1,17 +1,19 @@
+import os
 import time
-from flask import request, Response
-from prometheus_client import Counter, Histogram, Info, generate_latest, CONTENT_TYPE_LATEST
+
+from flask import Response, request
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, Info, generate_latest
 
 REQUEST_COUNT = Counter(
     "release_api_http_requests_total",
     "Total HTTP requests handled by release-api",
-    ["method", "endpoint", "status"],
+    ["method", "path", "status"],
 )
 
 REQUEST_LATENCY = Histogram(
     "release_api_http_request_duration_seconds",
     "HTTP request latency for release-api",
-    ["method", "endpoint", "status"],
+    ["method", "path", "status"],
 )
 
 APP_INFO = Info(
@@ -23,7 +25,7 @@ APP_INFO = Info(
 def init_metrics(app):
     APP_INFO.info({
         "service": "release-api",
-        "version": app.config.get("APP_VERSION", "unknown"),
+        "version": os.getenv("APP_VERSION", app.config.get("APP_VERSION", "unknown")),
     })
 
     @app.before_request
@@ -35,13 +37,23 @@ def init_metrics(app):
         if request.path == "/metrics":
             return response
 
-        duration = time.perf_counter() - getattr(request, "_metrics_start_time", time.perf_counter())
-        endpoint = request.path
-        method = request.method
-        status = str(response.status_code)
+        duration = time.perf_counter() - getattr(
+            request,
+            "_metrics_start_time",
+            time.perf_counter(),
+        )
 
-        REQUEST_COUNT.labels(method=method, endpoint=endpoint, status=status).inc()
-        REQUEST_LATENCY.labels(method=method, endpoint=endpoint, status=status).observe(duration)
+        REQUEST_COUNT.labels(
+            method=request.method,
+            path=request.path,
+            status=str(response.status_code),
+        ).inc()
+
+        REQUEST_LATENCY.labels(
+            method=request.method,
+            path=request.path,
+            status=str(response.status_code),
+        ).observe(duration)
 
         return response
 
